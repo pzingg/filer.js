@@ -826,10 +826,8 @@ var Filer = new function() {
    * If the file already exists, its contents are overwritten.
    *
    * @param {string|FileEntry} entryOrPath A path, filesystem URL, or FileEntry
-    *     of the file to lookup.
-   * @param {object} dataObj The data to download and write. Example:
-   *     {url: string, type: mimetype, append: true}
-   *     If append is specified, data is appended to the end of the file.
+   *     of the file to lookup.
+   * @param {string} url The URL to GET for the file's data.
    * @param {Function} opt_successCallback Success callback, which is passed
    *     the created FileEntry and FileWriter object used to write the data.
    * @param {Function=} opt_errorHandler Optional error callback.

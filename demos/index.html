@@ -69,6 +69,15 @@ Other:
   <div id="errors" class="error"></div>
   <div style="display:-webkit-flex;margin: 25px 0 15px 0;">
     <div style="-webkit-flex: 1 0 55%;">
+      <input type="text" id="url" alt="URL to download" title="URL to download">
+      <button id="download" onclick="downloadUrl()" alt="Download" title="Download">Download</button>
+    </div>
+  </div>
+</section>
+<section>
+  <div id="errors" class="error"></div>
+  <div style="display:-webkit-flex;margin: 25px 0 15px 0;">
+    <div style="-webkit-flex: 1 0 55%;">
       <input type="text" id="cwd" disabled alt="Current directory path" title="Current directory path">
       <button id="openFsButton" onclick="refreshFolder()" alt="Refresh view" title="Refresh view">Open file system</button>
     </div>
@@ -87,7 +96,7 @@ Other:
 </section>
 <footer></footer>
 </div>
-<script src="../src/filer.min.js?2013-06-12" defer></script>
+<script src="../src/filer.js?2013-06-12" defer></script>
 <script src="js/logger.js" defer></script>
 <script src="js/dnd.js" defer></script>
 <script src="js/app.js?2013-06-12" onload="openFS()" defer></script>

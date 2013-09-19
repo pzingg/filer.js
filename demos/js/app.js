@@ -491,6 +491,61 @@ function onImport(e) {
   }
 }
 
+// from Purl.js
+// don't know why but http://10.0.0.200/filer-js/LICENSE
+// give attr['path'] and attr['directory'] '/filer-js/LICENSE'
+// attr['file'] is ''
+// so we'll use seg['path']
+
+function simpleParseUri( url, strictMode ) {
+  var key = ['source', 'protocol', 'authority', 'userInfo', 'user', 'password', 'host', 'port', 'relative', 'path', 'directory', 'file', 'query', 'fragment'], // keys available to query
+    parser = {
+      strict : /^(?:([^:\/?#]+):)?(?:\/\/((?:(([^:@]*):?([^:@]*))?@)?([^:\/?#]*)(?::(\d*))?))?((((?:[^?#\/]*\/)*)([^?#]*))(?:\?([^#]*))?(?:#(.*))?)/,  //less intuitive, more accurate to the specs
+      loose :  /^(?:(?![^:@]+:[^:@\/]*@)([^:\/?#.]+):)?(?:\/\/)?((?:(([^:@]*):?([^:@]*))?@)?([^:\/?#]*)(?::(\d*))?)(((\/(?:[^?#](?![^?#\/]*\.[^?#\/.]+(?:[?#]|$)))*\/?)?([^?#\/]*))(?:\?([^#]*))?(?:#(.*))?)/ // more intuitive, fails on relative paths and deviates from specs
+    },
+    str = decodeURI( url ),
+    res   = parser[ strictMode || false ? 'strict' : 'loose' ].exec( str ),
+    uri = { attr : {}, param : {}, seg : {} },
+    i   = 14;
+
+    while ( i-- ) {
+        uri.attr[ key[i] ] = res[i] || '';
+    }
+
+    // split path and fragement into segments
+    uri.seg['path'] = uri.attr.path.replace(/^\/+|\/+$/g,'').split('/');
+    uri.seg['fragment'] = uri.attr.fragment.replace(/^\/+|\/+$/g,'').split('/');
+
+    // compile a 'base' domain attribute
+    uri.attr['base'] = uri.attr.host ? (uri.attr.protocol ?  uri.attr.protocol+'://'+uri.attr.host : uri.attr.host) + (uri.attr.port ? ':'+uri.attr.port : '') : '';
+    return uri;
+}
+
+
+function downloadUrl(e) {
+  // Open the FS, if not ready
+  if (filer && !filer.isOpen) {
+    openFS();
+  } 
+
+  errors.textContent = ''; // Reset errors.
+
+  var url = document.querySelector('#url').value,
+    uri = simpleParseUri(url, false);
+  
+  var segments = uri.seg['path'];
+  var fullPath = '/' + segments.join('/');
+  var folder = '/' + segments.slice(0, -1);
+  filer.mkdir(folder, false, null, onError);
+  filer.download(fullPath, url,
+    function(fileEntry, fileWriter) {
+      addEntryToList(fileEntry);
+      filer.ls('.', renderEntries, onError); // Just re-read this dir.
+    },
+    onError
+  );
+}
+
 function addListeners() {
   importButton.addEventListener('change', onImport, false);
   document.addEventListener('keydown', onKeydown, false);

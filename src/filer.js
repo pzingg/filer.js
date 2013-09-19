@@ -375,7 +375,60 @@ var Filer = new function() {
       }, src, dest);
     }
   }
+  
+  /**
+   * Writes data to a file.
+   *
+   * See public method's description (Filer.write()) for params.
+   */
+  var write_ = function(entryOrPath, dataObj, opt_successCallback,
+                                     opt_errorHandler) {
+    var writeFile_ = function(fileEntry) {
+      fileEntry.createWriter(function(fileWriter) {
 
+        fileWriter.onerror = opt_errorHandler;
+
+        if (dataObj.append) {
+          fileWriter.onwriteend = function(e) {
+            if (opt_successCallback) opt_successCallback(fileEntry, this);
+          };
+
+          fileWriter.seek(fileWriter.length); // Start write position at EOF.
+        } else {
+          var truncated = false;
+          fileWriter.onwriteend = function(e) {
+            // Truncate file to newly written file size.
+            if (!truncated) {
+              truncated = true;
+              this.truncate(this.position);
+              return;
+            }
+            if (opt_successCallback) opt_successCallback(fileEntry, this);
+          };
+        }
+        
+        // Blob() takes ArrayBufferView, not ArrayBuffer.
+        if (dataObj.data.__proto__ == ArrayBuffer.prototype) {
+          dataObj.data = new Uint8Array(dataObj.data);
+        }
+        var blob = new Blob([dataObj.data],
+                            dataObj.type ? {type: dataObj.type} : {});
+
+        fileWriter.write(blob);
+
+      }, opt_errorHandler);
+    };
+
+    if (entryOrPath.isFile) {
+      writeFile_(entryOrPath);
+    } else if (isFsURL_(entryOrPath)) {
+      getEntry_(writeFile_, entryOrPath);
+    } else {
+      cwd_.getFile(entryOrPath, {create: true, exclusive: false}, writeFile_,
+                   opt_errorHandler);
+    }
+  };
+  
   function Filer(fs) {
     fs_  = fs || null;
     if (fs_) {
@@ -762,52 +815,50 @@ var Filer = new function() {
     if (!fs_) {
       throw new Error(FS_INIT_ERROR_MSG);
     }
-
-    var writeFile_ = function(fileEntry) {
-      fileEntry.createWriter(function(fileWriter) {
-
-        fileWriter.onerror = opt_errorHandler;
-
-        if (dataObj.append) {
-          fileWriter.onwriteend = function(e) {
-            if (opt_successCallback) opt_successCallback(fileEntry, this);
-          };
-
-          fileWriter.seek(fileWriter.length); // Start write position at EOF.
-        } else {
-          var truncated = false;
-          fileWriter.onwriteend = function(e) {
-            // Truncate file to newly written file size.
-            if (!truncated) {
-              truncated = true;
-              this.truncate(this.position);
-              return;
-            }
-            if (opt_successCallback) opt_successCallback(fileEntry, this);
-          };
-        }
-
-        // Blob() takes ArrayBufferView, not ArrayBuffer.
-        if (dataObj.data.__proto__ == ArrayBuffer.prototype) {
-          dataObj.data = new Uint8Array(dataObj.data);
-        }
-        var blob = new Blob([dataObj.data],
-                            dataObj.type ? {type: dataObj.type} : {});
-
-        fileWriter.write(blob);
-
-      }, opt_errorHandler);
-    };
-
-    if (entryOrPath.isFile) {
-      writeFile_(entryOrPath);
-    } else if (isFsURL_(entryOrPath)) {
-      getEntry_(writeFile_, entryOrPath);
-    } else {
-      cwd_.getFile(entryOrPath, {create: true, exclusive: false}, writeFile_,
-                   opt_errorHandler);
-    }
+    
+    write_(entryOrPath, dataObj, opt_successCallback, opt_errorHandler);
   };
+  
+  
+  /**
+   * Downloads data to a file.
+   *
+   * If the file already exists, its contents are overwritten.
+   *
+   * @param {string|FileEntry} entryOrPath A path, filesystem URL, or FileEntry
+    *     of the file to lookup.
+   * @param {object} dataObj The data to download and write. Example:
+   *     {url: string, type: mimetype, append: true}
+   *     If append is specified, data is appended to the end of the file.
+   * @param {Function} opt_successCallback Success callback, which is passed
+   *     the created FileEntry and FileWriter object used to write the data.
+   * @param {Function=} opt_errorHandler Optional error callback.
+   */
+  Filer.prototype.download = function(entryOrPath, url, opt_successCallback,
+                                   opt_errorHandler) {
+    if (!fs_) {
+      throw new Error(FS_INIT_ERROR_MSG);
+    }
+  
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.responseType = 'arraybuffer';
+    xhr.onerror = opt_errorHandler;
+
+    xhr.onload = function(e) {
+      if (this.status == 200) {
+        write_(entryOrPath, 
+          { data: this.response, 
+            type: this.getResponseHeader('content-type') },
+          opt_successCallback, opt_errorHandler);
+      } else {
+        opt_errorHandler({name: 'HTTP_STATUS_' + this.status})
+      }
+    };
+    
+    xhr.send();
+  };
+
   
   /**
    * Displays disk space usage.
